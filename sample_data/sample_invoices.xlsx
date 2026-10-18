@@ -1,0 +1,5 @@
+
+invoice_number,vendor_name,invoice_date,total_amount
+INV-1001,ABC Technologies,2026-10-10,12500.00
+INV-1002,XYZ Solutions,2026-10-11,8500.50
+INV-1003,Demo Services,2026-10-12,4200.00
