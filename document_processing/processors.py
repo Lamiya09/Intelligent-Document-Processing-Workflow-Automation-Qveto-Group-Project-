@@ -27,15 +27,17 @@ def _read_pdf(path):
         with pymupdf.open(path) as pdf:
             if pdf.page_count == 0:
                 raise ValueError("The PDF contains no pages.")
+
             if pdf.page_count > MAX_PDF_PAGES:
                 raise ValueError(
                     "PDF exceeds the maximum allowed page count (100)."
                 )
-            for page_number, page in enumerate(pdf, start=1):
-                # First try extracting selectable digital text.
+
+            for page in pdf:
+                # First, extract selectable text from the PDF.
                 text = page.get_text("text").strip()
 
-                # If no usable text exists, try OCR.
+                # If no text exists, try OCR for scanned pages.
                 if not text:
                     pixmap = page.get_pixmap(dpi=200)
                     image_bytes = pixmap.tobytes("png")
@@ -82,7 +84,9 @@ def read_document(file_path):
         raise ValueError(f"Path is not a file: {path}")
 
     if path.stat().st_size > MAX_FILE_SIZE_BYTES:
-        raise ValueError("File exceeds the maximum allowed size of 50 MB.")
+        raise ValueError(
+            "File exceeds the maximum allowed size of 50 MB."
+        )
 
     extension = path.suffix.lower()
 
@@ -90,12 +94,14 @@ def read_document(file_path):
         raise ValueError(f"Unsupported file type: {extension}")
 
     try:
+        # PDF processing
         if extension == ".pdf":
             if path.stat().st_size == 0:
                 raise ValueError("The PDF file is empty.")
 
             return _read_pdf(path)
 
+        # CSV processing
         if extension == ".csv":
             if path.stat().st_size == 0:
                 raise ValueError("The CSV file is empty.")
@@ -125,26 +131,32 @@ def read_document(file_path):
                     "The CSV file is empty or has an invalid delimiter."
                 ) from error
 
+        # Excel processing
         else:
-            data = pd.read_excel(
-                path,
-                dtype=str,
-                keep_default_na=False,
-            )
+            try:
+                data = pd.read_excel(
+                    path,
+                    dtype=str,
+                    keep_default_na=False,
+                )
+            except ValueError as error:
+                raise ValueError(
+                    f"Could not read the document: {path.name}"
+                ) from error
 
+        # Check whether the document contains any data.
         if data.empty or len(data.columns) == 0:
             raise ValueError("The document contains no data rows.")
 
+        # Convert records into JSON-friendly dictionaries.
         return data.to_dict(orient="records")
 
     except ValueError:
         raise
-    except pd.errors.EmptyDataError as error:
-        raise ValueError("The CSV file is empty.") from error
     except (
         pd.errors.ParserError,
-        pd.errors.ExcelFileError,
         OSError,
+        ImportError,
     ) as error:
         raise ValueError(
             f"Could not read the document: {path.name}"

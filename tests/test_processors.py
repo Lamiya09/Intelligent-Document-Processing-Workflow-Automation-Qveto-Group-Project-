@@ -58,3 +58,11 @@ def test_rejects_file_over_size_limit(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match="maximum allowed size"):
         read_document(file_path)
+
+
+def test_rejects_corrupted_excel_file(tmp_path):
+    file_path = tmp_path / "corrupted.xlsx"
+    file_path.write_text("this is not a valid Excel workbook")
+
+    with pytest.raises(ValueError, match="Could not read the document"):
+        read_document(file_path)
