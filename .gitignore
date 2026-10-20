@@ -13,3 +13,10 @@ staticfiles/
 htmlcov/
 .idea/
 .vscode/
+
+# Generated document uploads
+documents/20*/
+
+# Local test artifacts
+report.pdf
+test-invoices.csv
