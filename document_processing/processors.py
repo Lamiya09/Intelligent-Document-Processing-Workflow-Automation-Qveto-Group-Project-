@@ -9,6 +9,10 @@ import pytesseract
 from PIL import Image
 
 
+MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
+MAX_PDF_PAGES = 100
+
+
 # Update this path if Tesseract is installed elsewhere.
 pytesseract.pytesseract.tesseract_cmd = (
     r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -23,7 +27,10 @@ def _read_pdf(path):
         with pymupdf.open(path) as pdf:
             if pdf.page_count == 0:
                 raise ValueError("The PDF contains no pages.")
-
+            if pdf.page_count > MAX_PDF_PAGES:
+                raise ValueError(
+                    "PDF exceeds the maximum allowed page count (100)."
+                )
             for page_number, page in enumerate(pdf, start=1):
                 # First try extracting selectable digital text.
                 text = page.get_text("text").strip()
@@ -73,6 +80,9 @@ def read_document(file_path):
 
     if not path.is_file():
         raise ValueError(f"Path is not a file: {path}")
+
+    if path.stat().st_size > MAX_FILE_SIZE_BYTES:
+        raise ValueError("File exceeds the maximum allowed size of 50 MB.")
 
     extension = path.suffix.lower()
 

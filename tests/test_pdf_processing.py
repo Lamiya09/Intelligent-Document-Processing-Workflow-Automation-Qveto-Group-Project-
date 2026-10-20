@@ -59,3 +59,76 @@ def test_extracts_text_from_scanned_pdf(tmp_path):
 
     assert len(records) == 1
     assert "INV-2026-101" in records[0]["text"]
+
+def test_extracts_text_from_multiple_scanned_pdf_pages(tmp_path):
+    first_image_path = tmp_path / "page1.png"
+    second_image_path = tmp_path / "page2.png"
+    pdf_path = tmp_path / "multi_page_scanned.pdf"
+
+    # Create the first scanned page.
+    first_image = Image.new("RGB", (1200, 400), "white")
+    first_draw = ImageDraw.Draw(first_image)
+    first_draw.text(
+        (50, 100),
+        "Invoice Number: INV-PAGE-101",
+        fill="black",
+    )
+    first_image.save(first_image_path)
+
+    # Create the second scanned page.
+    second_image = Image.new("RGB", (1200, 400), "white")
+    second_draw = ImageDraw.Draw(second_image)
+    second_draw.text(
+        (50, 100),
+        "Invoice Total: 2500",
+        fill="black",
+    )
+    second_image.save(second_image_path)
+
+    # Combine both images into one PDF.
+    with pymupdf.open() as pdf:
+        first_page = pdf.new_page(width=600, height=200)
+        first_page.insert_image(
+            first_page.rect,
+            filename=str(first_image_path),
+        )
+
+        second_page = pdf.new_page(width=600, height=200)
+        second_page.insert_image(
+            second_page.rect,
+            filename=str(second_image_path),
+        )
+
+        pdf.save(pdf_path)
+
+    # Extract text from both scanned pages.
+    records = read_document(pdf_path)
+
+    assert len(records) == 1
+
+    extracted_text = records[0]["text"]
+
+    assert "INV-PAGE-101" in extracted_text
+    assert "Invoice Total" in extracted_text
+    assert "2500" in extracted_text
+
+    # Confirm that page order is preserved.
+    assert extracted_text.index("INV-PAGE-101") < extracted_text.index(
+        "Invoice Total"
+    )
+
+
+def test_rejects_pdf_over_page_limit(tmp_path, monkeypatch):
+    import document_processing.processors as processors
+
+    pdf_path = tmp_path / "too_many_pages.pdf"
+
+    with pymupdf.open() as pdf:
+        pdf.new_page()
+        pdf.new_page()
+        pdf.save(pdf_path)
+
+    monkeypatch.setattr(processors, "MAX_PDF_PAGES", 1)
+
+    with pytest.raises(ValueError, match="maximum allowed page count"):
+        read_document(pdf_path)

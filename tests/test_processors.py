@@ -46,3 +46,15 @@ def test_valid_csv(tmp_path):
     assert len(records) == 1
     assert records[0]["invoice_number"] == "INV-1001"
     assert records[0]["vendor_name"] == "ABC Technologies"
+
+
+def test_rejects_file_over_size_limit(tmp_path, monkeypatch):
+    import document_processing.processors as processors
+
+    file_path = tmp_path / "large.csv"
+    file_path.write_text("invoice_number\nINV-101\n")
+
+    monkeypatch.setattr(processors, "MAX_FILE_SIZE_BYTES", 5)
+
+    with pytest.raises(ValueError, match="maximum allowed size"):
+        read_document(file_path)
