@@ -66,3 +66,15 @@ def test_rejects_corrupted_excel_file(tmp_path):
 
     with pytest.raises(ValueError, match="Could not read the document"):
         read_document(file_path)
+
+
+def test_rejects_malformed_csv(tmp_path):
+    file_path = tmp_path / "malformed.csv"
+    file_path.write_text(
+        'invoice_number,vendor,amount\n'
+        'INV-001,"Unclosed vendor name,100\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError):
+        read_document(file_path)
