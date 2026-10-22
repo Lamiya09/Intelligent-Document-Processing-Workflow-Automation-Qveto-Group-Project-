@@ -57,3 +57,29 @@ def test_pipeline_rejects_pdf_for_invoice_validation(tmp_path):
 
     with pytest.raises(ValueError, match="CSV and Excel"):
         process_invoice_file(file_path)
+
+
+def test_pipeline_rejects_missing_file(tmp_path):
+    file_path = tmp_path / "missing.csv"
+
+    with pytest.raises(FileNotFoundError):
+        process_invoice_file(file_path)
+
+
+def test_pipeline_rejects_unsupported_file_type(tmp_path):
+    file_path = tmp_path / "invoices.txt"
+    file_path.write_text("invoice data", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="CSV and Excel"):
+        process_invoice_file(file_path)
+
+
+def test_pipeline_returns_zero_counts_for_header_only_csv(tmp_path):
+    file_path = tmp_path / "invoices.csv"
+    file_path.write_text(
+        "invoice_number,vendor_name,invoice_date,total_amount\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="no data rows"):
+        process_invoice_file(file_path)
