@@ -2,6 +2,7 @@
 import pandas as pd
 import pytest
 
+import json
 from document_processing.pipeline import process_invoice_file
 
 
@@ -83,3 +84,50 @@ def test_pipeline_returns_zero_counts_for_header_only_csv(tmp_path):
 
     with pytest.raises(ValueError, match="no data rows"):
         process_invoice_file(file_path)
+
+
+def test_pipeline_output_is_json_serializable(tmp_path):
+    file_path = tmp_path / "invoices.csv"
+    file_path.write_text(
+        "invoice_number,vendor_name,invoice_date,total_amount\n"
+        "INV-3001,ABC Technologies,2026-10-15,1500.00\n",
+        encoding="utf-8",
+    )
+
+    result = process_invoice_file(file_path)
+
+    # The full result should be convertible to JSON.
+    json_output = json.dumps(result)
+    restored_result = json.loads(json_output)
+
+    assert restored_result["file_name"] == "invoices.csv"
+    assert restored_result["total_records"] == 1
+    assert restored_result["valid_records"] == 1
+    assert restored_result["invalid_records"] == 0
+
+
+def test_pipeline_counts_match_validation_results(tmp_path):
+    file_path = tmp_path / "invoices.csv"
+    file_path.write_text(
+        "invoice_number,vendor_name,invoice_date,total_amount\n"
+        "INV-4001,ABC Technologies,2026-10-15,1500.00\n"
+        "INV-4002,,2026-10-16,2000.00\n"
+        "INV-4003,XYZ Solutions,2026-10-17,3000.00\n",
+        encoding="utf-8",
+    )
+
+    result = process_invoice_file(file_path)
+    records = result["results"]
+
+    actual_valid = sum(
+        row["validation_status"] == "valid"
+        for row in records
+    )
+    actual_invalid = sum(
+        row["validation_status"] == "invalid"
+        for row in records
+    )
+
+    assert result["total_records"] == len(records) == 3
+    assert result["valid_records"] == actual_valid == 2
+    assert result["invalid_records"] == actual_invalid == 1
